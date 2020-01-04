@@ -18,7 +18,15 @@ from visualizer import Visualizer
 locale.setlocale(locale.LC_ALL, 'ko_KR.UTF-8')
 
 
-class PolicyLearner:
+class ReinforcementLearner:
+    pass
+
+
+class QLearner(ReinforcementLearner):
+    pass
+
+
+class PolicyLearner(ReinforcementLearner):
     def __init__(self, stock_code, chart_data, training_data=None,
                  min_trading_unit=1, max_trading_unit=2, delayed_reward_threshold=.05, 
                  net='lstm', n_steps=1, lr=0.01, policy_network_path=None):
@@ -266,7 +274,11 @@ class PolicyLearner:
         self.policy_network.save_model(self.policy_network_path)
 
 
-class A2CLearner(PolicyLearner):
+class ActorCriticLearner(ReinforcementLearner):
+    pass
+
+
+class A2CLearner(ActorCriticLearner):
     def __init__(self, stock_code, chart_data, training_data=None,
                  min_trading_unit=1, max_trading_unit=2,
                  delayed_reward_threshold=.05, lr=0.01, policy_network_path=None, 
@@ -330,9 +342,9 @@ class A2CLearner(PolicyLearner):
 
         for i, (sample, action, reward) in enumerate(memory[-batch_size:]):
             r = delayed_reward
-            adv = delayed_reward - self.memory_value[-batch_size:][i]
+            advantage = delayed_reward - self.memory_value[-batch_size:][i]
             x[i] = np.array(sample).reshape((-1, 1, self.num_features))
-            y_policy[i, action] = adv
+            y_policy[i, action] = advantage
             y_value[i] = r
             if discount_factor > 0:
                 y_policy[i, action] *= discount_factor ** i
@@ -358,7 +370,7 @@ class A2CLearner(PolicyLearner):
         self.value_network.save_model(self.value_network_path)
 
 
-class A3CLearner:
+class A3CLearner(ReinforcementLearner):
     def __init__(self, list_stock_code, list_chart_data, list_training_data=None,
                  list_min_trading_unit=None, list_max_trading_unit=None,
                  delayed_reward_threshold=.02, lr=0.01, policy_network_path=None, 

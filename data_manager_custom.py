@@ -75,5 +75,3 @@ def build_training_data(prep_data):
 
     return training_data
 
-
-# chart_data = pd.read_csv(fpath, encoding='CP949', thousands=',', engine='python')

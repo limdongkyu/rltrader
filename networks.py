@@ -48,6 +48,34 @@ class Network:
             self.model.load_weights(model_path)
 
 
+class DNN(Network):
+    def __init__(self, input_dim=0, output_dim=0, lr=0.01, shared_net=None, activation='tanh', sess=None, graph=None):
+        super().__init__(
+            input_dim=input_dim, 
+            output_dim=output_dim, 
+            lr=lr,
+            shared_net=shared_net,
+            activation=activation,
+            sess=sess,
+            graph=graph,
+        )
+        self.model = Sequential()
+        inp = Input((1, input_dim))
+        output = Dense(128, input_shape=(1, input_dim))(inp)
+        output = Dropout(0.5)(output)
+        output = BatchNormalization()(output)
+        output = Dense(128)(output)
+        output = Dropout(0.5)(output)
+        output = BatchNormalization()(output)
+        output = Dense(128)(output)
+        output = Dropout(0.5)(output)
+        output = BatchNormalization()(output)
+        output = Dense(output_dim)(output)
+        output = Flatten()(output)
+        output = Activation(activation)(output)
+        self.model.compile(optimizer=SGD(lr=lr), loss='mse')
+    
+
 class LSTMNetwork(Network):
     def __init__(self, input_dim=0, output_dim=0, n_steps=1, lr=0.01, shared_net=None, activation='tanh', sess=None, graph=None):
         super().__init__(
@@ -74,32 +102,8 @@ class LSTMNetwork(Network):
         self.model.compile(optimizer=SGD(lr=lr), loss='mse')
 
 
-class DNNNetwork(Network):
-    def __init__(self, input_dim=0, output_dim=0, lr=0.01, shared_net=None, activation='tanh', sess=None, graph=None):
-        super().__init__(
-            input_dim=input_dim, 
-            output_dim=output_dim, 
-            lr=lr,
-            shared_net=shared_net,
-            activation=activation,
-            sess=sess,
-            graph=graph,
-        )
-        self.model = Sequential()
-        inp = Input((1, input_dim))
-        output = Dense(128, input_shape=(1, input_dim))(inp)
-        output = Dropout(0.5)(output)
-        output = BatchNormalization()(output)
-        output = Dense(128)(output)
-        output = Dropout(0.5)(output)
-        output = BatchNormalization()(output)
-        output = Dense(128)(output)
-        output = Dropout(0.5)(output)
-        output = BatchNormalization()(output)
-        output = Dense(output_dim)(output)
-        output = Flatten()(output)
-        output = Activation(activation)(output)
-        self.model.compile(optimizer=SGD(lr=lr), loss='mse')
+class CNN(Network):
+    pass
     
 
 def get_shared_network(net='lstm', n_steps=1, input_dim=0):
