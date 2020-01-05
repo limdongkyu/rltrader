@@ -25,7 +25,7 @@ logging.basicConfig(format="%(message)s",
 
 import data_manager
 from agent import Agent
-from learners import PolicyLearner, A2CLearner, A3CLearner
+from learners import PolicyGradientLearner, A2CLearner, A3CLearner
 
 
 if __name__ == '__main__':
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         # 강화학습 시작
         learner = None
         if args.rl_method == 'pg':
-            learner = PolicyLearner(
+            learner = PolicyGradientLearner(
                 stock_code=stock_code, chart_data=chart_data, training_data=training_data,
                 min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.05,
                 net='lstm', n_steps=5, lr=.01)

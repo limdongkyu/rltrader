@@ -22,11 +22,15 @@ class ReinforcementLearner:
     pass
 
 
+class SARSALearner(ReinforcementLearner):
+    pass
+
+
 class QLearner(ReinforcementLearner):
     pass
 
 
-class PolicyLearner(ReinforcementLearner):
+class PolicyGradientLearner(ReinforcementLearner):
     def __init__(self, stock_code, chart_data, training_data=None,
                  min_trading_unit=1, max_trading_unit=2, delayed_reward_threshold=.05, 
                  net='lstm', n_steps=1, lr=0.01, policy_network_path=None):

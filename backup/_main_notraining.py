@@ -2,7 +2,7 @@ import logging
 import os
 import settings
 import data_manager
-from policy_learner import PolicyLearner
+from policy_learner import PolicyGradientLearner
 
 
 if __name__ == '__main__':
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     training_data = training_data[features_training_data]
 
     # 비 학습 투자 시뮬레이션 시작
-    policy_learner = PolicyLearner(
+    policy_learner = PolicyGradientLearner(
         stock_code=stock_code, chart_data=chart_data, training_data=training_data,
         min_trading_unit=1, max_trading_unit=3)
     policy_learner.trade(balance=10000000,
