@@ -109,4 +109,4 @@ venv.bak/
 /epoch_summary/
 /etc/
 /.idea/
-/.vscode/
+# /.vscode/

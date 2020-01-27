@@ -329,14 +329,15 @@ class DQNLearner(ReinforcementLearner):
             reversed(self.memory_sample[-batch_size:]),
             reversed(self.memory_action[-batch_size:]),
             reversed(self.memory_value[-batch_size:]),
+            reversed(self.memory_reward[-batch_size:]),
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         value_max_next = 0
-        for i, (sample, action, value) in enumerate(memory):
+        for i, (sample, action, value, reward) in enumerate(memory):
             x[i] = sample
             y[i] = value
-            y[i, action] = delayed_reward + discount_factor * value_max_next
+            y[i, action] = reward + discount_factor * value_max_next
             value_max_next = value.max()
         return x, y, None
 
@@ -351,13 +352,14 @@ class PolicyGradientLearner(ReinforcementLearner):
             reversed(self.memory_sample[-batch_size:]),
             reversed(self.memory_action[-batch_size:]),
             reversed(self.memory_policy[-batch_size:]),
+            reversed(self.memory_reward[-batch_size:]),
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y = np.zeros((batch_size, self.agent.NUM_ACTIONS))
-        for i, (sample, action, policy) in enumerate(memory):
+        for i, (sample, action, policy, reward) in enumerate(memory):
             x[i] = sample
             y[i] = policy
-            y[i, action] += (delayed_reward - .5) * (discount_factor ** i)
+            y[i, action] += utils.sigmoid(delayed_reward) * (discount_factor ** i)
         return x, None, y
 
 class ActorCriticLearner(ReinforcementLearner):
@@ -380,16 +382,17 @@ class ActorCriticLearner(ReinforcementLearner):
             reversed(self.memory_action[-batch_size:]),
             reversed(self.memory_value[-batch_size:]),
             reversed(self.memory_policy[-batch_size:]),
+            reversed(self.memory_reward[-batch_size:]),
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y_value = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         y_policy = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         value_max_next = 0
-        for i, (sample, action, value, policy) in enumerate(memory):
+        for i, (sample, action, value, policy, reward) in enumerate(memory):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            y_value[i, action] = delayed_reward + discount_factor * value_max_next
+            y_value[i, action] = reward + discount_factor * value_max_next
             y_policy[i, action] += (utils.sigmoid(value[action]) - .5) * (discount_factor ** i)
             value_max_next = value.max()
         return x, y_value, y_policy
@@ -405,18 +408,19 @@ class A2CLearner(ActorCriticLearner):
             reversed(self.memory_action[-batch_size:]),
             reversed(self.memory_value[-batch_size:]),
             reversed(self.memory_policy[-batch_size:]),
+            reversed(self.memory_reward[-batch_size:]),
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y_value = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         y_policy = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         value_max_next = 0
-        for i, (sample, action, value, policy) in enumerate(memory):
+        for i, (sample, action, value, policy, reward) in enumerate(memory):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            advantage = delayed_reward - value[action]
-            y_value[i, action] = delayed_reward + discount_factor * value_max_next
-            y_policy[i, action] += (utils.sigmoid(advantage) - .5) * (discount_factor ** i)
+            advantage = reward - value[action]
+            y_value[i, action] = reward + discount_factor * value_max_next
+            y_policy[i, action] += utils.sigmoid(advantage) * (discount_factor ** i)
             value_max_next = value.max()
         return x, y_value, y_policy
 
