@@ -344,7 +344,7 @@ class DQNLearner(ReinforcementLearner):
         for i, (sample, action, value, reward) in enumerate(memory):
             x[i] = sample
             y[i] = value
-            y[i, action] = sigmoid(reward) + discount_factor * value_max_next
+            y[i, action] = sigmoid(delayed_reward - reward) + discount_factor * value_max_next
             value_max_next = value.max()
         return x, y, None
 
@@ -399,7 +399,7 @@ class ActorCriticLearner(ReinforcementLearner):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            y_value[i, action] = sigmoid(reward) + discount_factor * value_max_next
+            y_value[i, action] = sigmoid(delayed_reward - reward) + discount_factor * value_max_next
             y_policy[i, action] += value[action] * (discount_factor ** i)
             value_max_next = value.max()
         return x, y_value, y_policy
@@ -425,8 +425,8 @@ class A2CLearner(ActorCriticLearner):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            advantage = sigmoid(reward) - value[action]
-            y_value[i, action] = sigmoid(reward) + discount_factor * value_max_next
+            advantage = sigmoid(delayed_reward - reward) - value[action]
+            y_value[i, action] = sigmoid(delayed_reward - reward) + discount_factor * value_max_next
             y_policy[i, action] += advantage * (discount_factor ** i)
             value_max_next = value.max()
         return x, y_value, y_policy
