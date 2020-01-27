@@ -118,7 +118,7 @@ if __name__ == '__main__':
             list_max_trading_unit.append(max_trading_unit)
         
         if learner is not None:
-            learner.fit(balance=10000000, num_epoches=1000, discount_factor=0.9, start_epsilon=.2)
+            learner.fit(balance=10000000, num_epoches=100, discount_factor=0.99, start_epsilon=.3)
             # 신경망을 파일로 저장
             learner.save_models()
 
@@ -129,4 +129,4 @@ if __name__ == '__main__':
             delayed_reward_threshold=.05, 
             net=args.net, n_steps=args.n_steps, lr=.01,
             value_network_path=value_network_path, policy_network_path=policy_network_path)
-        learner.fit(balance=10000000, num_epoches=100, discount_factor=0.9, start_epsilon=.2)
+        learner.fit(balance=10000000, num_epoches=100, discount_factor=0.99, start_epsilon=.3)

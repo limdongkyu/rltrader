@@ -82,15 +82,6 @@ class Agent:
             exploration = False
             action = np.argmax(pred)
 
-        # 홀딩인 경우 보유 주식 수에 따라서 선호 행동 수정
-        if action == Agent.ACTION_HOLD:
-            if self.num_hold == 0:
-                if pred[Agent.ACTION_BUY] > pred[Agent.ACTION_SELL]:
-                    action = Agent.ACTION_BUY
-            else:
-                if pred[Agent.ACTION_SELL] > pred[Agent.ACTION_BUY]:
-                    action = Agent.ACTION_SELL
-
         confidence = pred[action] / pred.sum()
 
         return action, confidence, exploration
@@ -174,11 +165,11 @@ class Agent:
 
         # 지연 보상 - 익절, 손절 기준
         if profitloss > self.delayed_reward_threshold:
-            delayed_reward = profitloss
+            delayed_reward = self.immediate_reward
             # 목표 수익률 달성하여 기준 포트폴리오 가치 갱신
             self.base_portfolio_value = self.portfolio_value
         elif profitloss < -self.delayed_reward_threshold:
-            delayed_reward = profitloss
+            delayed_reward = self.immediate_reward
             # 손실 기준치를 초과하여 기준 포트폴리오 가치 갱신
             self.base_portfolio_value = self.portfolio_value
         else:

@@ -8,7 +8,7 @@ import threading
 import time
 import numpy as np
 import settings
-import utils
+from utils import sigmoid
 from environment import Environment
 from agent import Agent
 from networks import Network, DNN, LSTMNetwork, CNN
@@ -63,7 +63,7 @@ class ReinforcementLearner:
         self.memory_exp_idx = []
         self.memory_learning_idx = []
 
-    def init_value_network(self, shared_network=None, activation='linear'):
+    def init_value_network(self, shared_network=None, activation='sigmoid'):
         if self.net == 'dnn':
             self.value_network = DNN(
                 input_dim=self.num_features, output_dim=self.agent.NUM_ACTIONS, lr=self.lr, shared_network=shared_network, activation=activation)
@@ -123,7 +123,7 @@ class ReinforcementLearner:
 
     def fit(
         self, num_epoches=100, balance=10000000,
-        discount_factor=.9, start_epsilon=.5, learning=True):
+        discount_factor=1, start_epsilon=1, learning=True):
         logging.info("[{code}] LR: {lr}, DF: {discount_factor}, "
                     "TU: [{min_trading_unit}, {max_trading_unit}], "
                     "DRT: {delayed_reward_threshold}".format(
@@ -134,6 +134,9 @@ class ReinforcementLearner:
             max_trading_unit=self.agent.max_trading_unit,
             delayed_reward_threshold=self.agent.delayed_reward_threshold
         ))
+
+        # 시작 시간
+        time_start = time.time()
 
         # 가시화 준비
         # 차트 데이터는 변하지 않으므로 미리 가시화
@@ -268,9 +271,13 @@ class ReinforcementLearner:
             if self.agent.portfolio_value > self.agent.initial_balance:
                 epoch_win_cnt += 1
 
+        # 종료 시간
+        time_end = time.time()
+        elapsed_time = time_end - time_start
+
         # 학습 관련 정보 로그 기록
-        logging.info("[{code}] Max PV: {max_pv}, \t # Win: {cnt_win}".format(
-            code=self.stock_code, max_pv=locale.currency(max_portfolio_value, grouping=True), cnt_win=epoch_win_cnt))
+        logging.info("[{code}] Elapsed Time: {elapsed_time}, Max PV: {max_pv}, \t # Win: {cnt_win}".format(
+            code=self.stock_code, elapsed_time=elapsed_time, max_pv=locale.currency(max_portfolio_value, grouping=True), cnt_win=epoch_win_cnt))
 
     def build_sample(self):
         self.environment.observe()
@@ -337,7 +344,7 @@ class DQNLearner(ReinforcementLearner):
         for i, (sample, action, value, reward) in enumerate(memory):
             x[i] = sample
             y[i] = value
-            y[i, action] = reward + discount_factor * value_max_next
+            y[i, action] = sigmoid(reward) + discount_factor * value_max_next
             value_max_next = value.max()
         return x, y, None
 
@@ -359,7 +366,7 @@ class PolicyGradientLearner(ReinforcementLearner):
         for i, (sample, action, policy, reward) in enumerate(memory):
             x[i] = sample
             y[i] = policy
-            y[i, action] += utils.sigmoid(delayed_reward) * (discount_factor ** i)
+            y[i, action] += (sigmoid(delayed_reward - reward) - 0.5) * (discount_factor ** i)
         return x, None, y
 
 class ActorCriticLearner(ReinforcementLearner):
@@ -392,8 +399,8 @@ class ActorCriticLearner(ReinforcementLearner):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            y_value[i, action] = reward + discount_factor * value_max_next
-            y_policy[i, action] += (utils.sigmoid(value[action]) - .5) * (discount_factor ** i)
+            y_value[i, action] = sigmoid(reward) + discount_factor * value_max_next
+            y_policy[i, action] += value[action] * (discount_factor ** i)
             value_max_next = value.max()
         return x, y_value, y_policy
 
@@ -418,9 +425,9 @@ class A2CLearner(ActorCriticLearner):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            advantage = reward - value[action]
-            y_value[i, action] = reward + discount_factor * value_max_next
-            y_policy[i, action] += utils.sigmoid(advantage) * (discount_factor ** i)
+            advantage = sigmoid(reward) - value[action]
+            y_value[i, action] = sigmoid(reward) + discount_factor * value_max_next
+            y_policy[i, action] += advantage * (discount_factor ** i)
             value_max_next = value.max()
         return x, y_value, y_policy
 
@@ -442,7 +449,7 @@ class A3CLearner(A2CLearner):
 
     def fit(
         self, num_epoches=100, balance=10000000,
-        discount_factor=.9, start_epsilon=.5, learning=True):
+        discount_factor=1, start_epsilon=1, learning=True):
         threads = []
         for learner in self.learners:
             threads.append(threading.Thread(target=learner.fit, daemon=True, kwargs={

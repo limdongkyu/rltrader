@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.compat.v1 import Session
 from tensorflow.compat.v1 import get_default_graph
-from tensorflow.compat.v1.keras.backend import set_session
+from tensorflow.compat.v1.keras.backend import set_session, clear_session
 from tensorflow.compat.v1.keras.models import Model, Sequential
 from tensorflow.compat.v1.keras.layers import Input, Activation, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
 from tensorflow.compat.v1.keras.optimizers import SGD
@@ -15,7 +15,7 @@ class Network:
     graph = get_default_graph()
 
     def __init__(self, input_dim=0, output_dim=0, lr=0.01, 
-                shared_network=None, activation='linear'):
+                shared_network=None, activation='sigmoid'):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.lr = lr
@@ -72,11 +72,9 @@ class DNN(Network):
 
     @staticmethod
     def get_network_head(inp):
-        output = Dense(128, activation='linear')(inp)
+        output = Dense(128, activation='sigmoid')(inp)
         output = Dropout(0.1)(output)
-        output = Dense(128, activation='linear')(output)
-        output = Dropout(0.1)(output)
-        output = Dense(128, activation='linear')(output)
+        output = Dense(128, activation='sigmoid')(output)
         output = Dropout(0.1)(output)
         return Model(inp, output)
 
