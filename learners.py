@@ -366,7 +366,7 @@ class PolicyGradientLearner(ReinforcementLearner):
         for i, (sample, action, policy, reward) in enumerate(memory):
             x[i] = sample
             y[i] = policy
-            y[i, action] += (sigmoid(delayed_reward - reward) - 0.5) * (discount_factor ** i)
+            y[i, action] += (sigmoid(delayed_reward) - sigmoid(reward)) * (discount_factor ** i)
         return x, None, y
 
 class ActorCriticLearner(ReinforcementLearner):
