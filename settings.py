@@ -62,7 +62,7 @@ DATA_DIR = os.path.join(BASE_DIR, "database")
 
 
 # Date Time Format
-timestr = None
+time_str = None
 FORMAT_DATE = "%Y%m%d"
 FORMAT_DATETIME = "%Y%m%d%H%M%S"
 
@@ -82,7 +82,7 @@ def get_today_str():
 
 
 def get_time_str():
-    global timestr
-    timestr = datetime.datetime.fromtimestamp(
+    global time_str
+    time_str = datetime.datetime.fromtimestamp(
         int(time.time())).strftime(FORMAT_DATETIME)
-    return timestr
+    return time_str

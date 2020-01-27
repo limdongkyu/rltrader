@@ -18,7 +18,6 @@ class Visualizer:
         self.fig = None  # 캔버스 같은 역할을 하는 Matplotlib의 Figure 클래스 객체
         self.axes = None  # 차트를 그리기 위한 Matplotlib의 Axes 클래스 객체
         self.ax_v = None  # 가치 신경망 출력
-        self.vnet = vnet  # 가치 신경망 출력 활성화
 
     def prepare(self, chart_data):
         with lock:
@@ -48,14 +47,15 @@ class Visualizer:
 
     def plot(self, epoch_str=None, num_epoches=None, epsilon=None,
             action_list=None, actions=None, num_stocks=None,
-            outvals_policy=None, outvals_value=None, exps=None, learning=None,
+            outvals_value=None, outvals_policy=None, exps=None, learning=None,
             initial_balance=None, pvs=None):
         with lock:
             x = np.arange(len(actions))  # 모든 차트가 공유할 x축 데이터
             actions = np.array(actions)  # 에이전트의 행동 배열
-            outvals_policy = np.array(outvals_policy)  # 정책 신경망의 출력 배열
             if outvals_value is not None:
-                outvals_value = np.array(outvals_value)  # 가치 신경망의 출력 배열
+                outvals_value = np.array([max(v) for v in outvals_value])  # 가치 신경망의 출력 배열
+            if outvals_policy is not None:
+                outvals_policy = np.array(outvals_policy)  # 정책 신경망의 출력 배열
             pvs_base = np.zeros(len(actions)) + initial_balance  # 초기 자본금 배열
 
             # 차트 2. 에이전트 상태 (행동, 보유 주식 수)
@@ -70,24 +70,25 @@ class Visualizer:
                 # 탐험을 노란색 배경으로 그리기
                 self.axes[2].axvline(exp_idx, color='y')
             # 가치 신경망 출력
-            if self.vnet:
+            if len(outvals_value) > 0:
                 color = 'k'
                 self.ax_v.plot(x, outvals_value, color=color, linestyle='-')
                 self.ax_v.tick_params(axis='y', labelcolor=color)
-            for idx, outval in zip(x, outvals_policy):
-                color = 'white'
-                if outval.argmax() == 0:
-                    color = 'r'  # 매수면 빨간색
-                elif outval.argmax() == 1:
-                    color = 'b'  # 매도면 파란색
-                elif outval.argmax() == 2:
-                    color = 'g'  # 홀드면 초록색
-                # 행동을 배경으로 그리기
-                self.axes[2].axvline(idx, color=color, alpha=0.1)
-            styles = ['.r', '.b', '.g']
-            for action, style in zip(action_list, styles):
-                # 정책 신경망의 출력 점으로 그리기
-                self.axes[2].plot(x, outvals_policy[:, action], style)
+            if len(outvals_policy) > 0:
+                for idx, outval in zip(x, outvals_policy):
+                    color = 'white'
+                    if outval.argmax() == 0:
+                        color = 'r'  # 매수 빨간색
+                    elif outval.argmax() == 1:
+                        color = 'b'  # 매도 파란색
+                    elif outval.argmax() == 2:
+                        color = 'g'  # 홀드 초록색
+                    # 행동을 배경으로 그리기
+                    self.axes[2].axvline(idx, color=color, alpha=0.1)
+                colors = ['r', 'b', 'g']
+                for action, color in zip(action_list, colors):
+                    # 정책 신경망의 출력 점으로 그리기
+                    self.axes[2].plot(x, outvals_policy[:, action], color=color, linestyle='-')
 
             # 차트 4. 포트폴리오 가치
             self.axes[3].axhline(initial_balance, linestyle='-', color='gray')
@@ -120,7 +121,7 @@ class Visualizer:
             # y축 레이블 재설정
             self.axes[1].set_ylabel('Agent')
             self.axes[2].set_ylabel('Net.')
-            if self.vnet: self.ax_v.set_ylabel('V')
+            self.ax_v.set_ylabel('V')
             self.axes[3].set_ylabel('PV')
             for ax in _axes:
                 ax.set_xlim(xlim)  # x축 limit 재설정

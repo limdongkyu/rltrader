@@ -11,9 +11,9 @@ if __name__ == '__main__':
 
     # 로그 기록
     log_dir = os.path.join(settings.BASE_DIR, 'logs/%s' % stock_code)
-    timestr = settings.get_time_str()
+    time_str = settings.get_time_str()
     file_handler = logging.FileHandler(filename=os.path.join(
-        log_dir, "%s_%s.log" % (stock_code, timestr)), encoding='utf-8')
+        log_dir, "%s_%s.log" % (stock_code, time_str)), encoding='utf-8')
     stream_handler = logging.StreamHandler()
     file_handler.setLevel(logging.DEBUG)
     stream_handler.setLevel(logging.INFO)

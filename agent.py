@@ -6,8 +6,8 @@ class Agent:
     STATE_DIM = 2  # 주식 보유 비율, 포트폴리오 가치 비율
 
     # 매매 수수료 및 세금
-    TRADING_CHARGE = 0  # 거래 수수료 미고려 (일반적으로 0.015%)
-    TRADING_TAX = 0  # 거래세 미고려 (실제 0.3%)
+    TRADING_CHARGE = 0.00015  # 거래 수수료 (일반적으로 0.015%)
+    TRADING_TAX = 0.003  # 거래세 (실제 0.3%)
 
     # 행동
     ACTION_BUY = 0  # 매수
@@ -66,27 +66,32 @@ class Agent:
             self.ratio_portfolio_value
         )
 
-    def decide_action(self, policy_network, sample, epsilon):
+    def decide_action(self, pred, epsilon):
         confidence = 0.
+
+        # 값이 모두 같은 경우 탐험
+        maxpred = np.max(pred)
+        if (pred == maxpred).all():
+            epsilon = True
+
         # 탐험 결정
         if np.random.rand() < epsilon:
             exploration = True
             action = np.random.randint(self.NUM_ACTIONS)  # 무작위로 행동 결정
         else:
             exploration = False
-            probs = policy_network.predict(sample)  # 각 행동에 대한 확률
-            action = np.argmax(probs)
+            action = np.argmax(pred)
 
-            # 홀딩인 경우 보유 주식 수에 따라서 선호 행동 수정
-            if action == Agent.ACTION_HOLD:
-                if self.num_hold == 0:
-                    if probs[Agent.ACTION_BUY] > probs[Agent.ACTION_SELL]:
-                        action = Agent.ACTION_BUY
-                else:
-                    if probs[Agent.ACTION_SELL] > probs[Agent.ACTION_BUY]:
-                        action = Agent.ACTION_SELL
+        # 홀딩인 경우 보유 주식 수에 따라서 선호 행동 수정
+        if action == Agent.ACTION_HOLD:
+            if self.num_hold == 0:
+                if pred[Agent.ACTION_BUY] > pred[Agent.ACTION_SELL]:
+                    action = Agent.ACTION_BUY
+            else:
+                if pred[Agent.ACTION_SELL] > pred[Agent.ACTION_BUY]:
+                    action = Agent.ACTION_SELL
 
-            confidence = probs[action]
+        confidence = pred[action] / pred.sum()
 
         return action, confidence, exploration
 
@@ -136,9 +141,10 @@ class Agent:
                 )
             # 수수료를 적용하여 총 매수 금액 산정
             invest_amount = curr_price * (1 + self.TRADING_CHARGE) * trading_unit
-            self.balance -= invest_amount  # 보유 현금을 갱신
-            self.num_stocks += trading_unit  # 보유 주식 수를 갱신
-            self.num_buy += 1  # 매수 횟수 증가
+            if invest_amount > 0:
+                self.balance -= invest_amount  # 보유 현금을 갱신
+                self.num_stocks += trading_unit  # 보유 주식 수를 갱신
+                self.num_buy += 1  # 매수 횟수 증가
 
         # 매도
         elif action == Agent.ACTION_SELL:
@@ -149,9 +155,10 @@ class Agent:
             # 매도
             invest_amount = curr_price * (
                 1 - (self.TRADING_TAX + self.TRADING_CHARGE)) * trading_unit
-            self.num_stocks -= trading_unit  # 보유 주식 수를 갱신
-            self.balance += invest_amount  # 보유 현금을 갱신
-            self.num_sell += 1  # 매도 횟수 증가
+            if invest_amount > 0:
+                self.num_stocks -= trading_unit  # 보유 주식 수를 갱신
+                self.balance += invest_amount  # 보유 현금을 갱신
+                self.num_sell += 1  # 매도 횟수 증가
 
         # 홀딩
         elif action == Agent.ACTION_HOLD:
@@ -162,10 +169,10 @@ class Agent:
         profitloss = (
             (self.portfolio_value - self.base_portfolio_value) / self.base_portfolio_value)
 
-        # 즉시 보상 판단
-        self.immediate_reward = 1 if profitloss >= 0 else -1
+        # 즉시 보상 - 수익률
+        self.immediate_reward = profitloss
 
-        # 지연 보상 판단
+        # 지연 보상 - 익절, 손절 기준
         if profitloss > self.delayed_reward_threshold:
             delayed_reward = profitloss
             # 목표 수익률 달성하여 기준 포트폴리오 가치 갱신

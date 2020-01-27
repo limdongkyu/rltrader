@@ -13,11 +13,11 @@ if __name__ == '__main__':
 
     # 로그 기록
     log_dir = os.path.join(settings.BASE_DIR, 'logs/%s' % stock_code)
-    timestr = settings.get_time_str()
+    time_str = settings.get_time_str()
     if not os.path.exists('logs/%s' % stock_code):
         os.makedirs('logs/%s' % stock_code)
     file_handler = logging.FileHandler(filename=os.path.join(
-        log_dir, "%s_%s.log" % (stock_code, timestr)), encoding='utf-8')
+        log_dir, "%s_%s.log" % (stock_code, time_str)), encoding='utf-8')
     stream_handler = logging.StreamHandler()
     file_handler.setLevel(logging.DEBUG)
     stream_handler.setLevel(logging.INFO)
@@ -63,5 +63,5 @@ if __name__ == '__main__':
     model_dir = os.path.join(settings.BASE_DIR, 'models/%s' % stock_code)
     if not os.path.isdir(model_dir):
         os.makedirs(model_dir)
-    model_path = os.path.join(model_dir, 'model_%s.h5' % timestr)
+    model_path = os.path.join(model_dir, 'model_%s.h5' % time_str)
     policy_learner.policy_network.save_model(model_path)

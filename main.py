@@ -7,34 +7,34 @@ import time
 from pytz import timezone
 
 import settings
+import data_manager
 
-
-# 로그 기록
+# 로그 기록 설정
 log_dir = os.path.join(settings.BASE_DIR, 'logs')
-timestr = settings.get_time_str()
+time_str = settings.get_time_str()
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 file_handler = logging.FileHandler(filename=os.path.join(
-    log_dir, "{}.log".format(timestr)), encoding='utf-8')
+    log_dir, "{}.log".format(time_str)), encoding='utf-8')
 stream_handler = logging.StreamHandler(sys.stdout)
 file_handler.setLevel(logging.DEBUG)
 stream_handler.setLevel(logging.INFO)
 logging.basicConfig(format="%(message)s",
                     handlers=[file_handler, stream_handler], level=logging.DEBUG)
 
-
-import data_manager
+# 로그 설정을 먼저하고 로깅하는 모듈들을 이후에 임포트해야 함
 from agent import Agent
-from learners import PolicyGradientLearner, A2CLearner, A3CLearner
+from learners import DQNLearner, PolicyGradientLearner, ActorCriticLearner, A2CLearner, A3CLearner
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--stock_codes', nargs='+')
-    parser.add_argument('--ver', default=datetime.fromtimestamp(time.time(), timezone('Asia/Seoul')).strftime("%Y%m%d%H%M%S"))
-    parser.add_argument('--rl_method', default='pg', help='Should be one of pg, a2c, and a3c')
-    parser.add_argument('--net', default='lstm', help='dnn, lstm')
-    parser.add_argument('--n_steps', default=5)
+    parser.add_argument('--ver', default=datetime.fromtimestamp(
+        time.time(), timezone('Asia/Seoul')).strftime("%Y%m%d%H%M%S"))
+    parser.add_argument('--rl_method', choices=['dqn', 'pg', 'ac', 'a2c', 'a3c'])
+    parser.add_argument('--net', choices=['dnn', 'lstm', 'cnn'], default='dnn')
+    parser.add_argument('--n_steps', type=int, default=1)
     args = parser.parse_args()
     
     # 모델 경로 준비
@@ -86,16 +86,30 @@ if __name__ == '__main__':
 
         # 강화학습 시작
         learner = None
-        if args.rl_method == 'pg':
-            learner = PolicyGradientLearner(
+        if args.rl_method == 'dqn':
+            learner = DQNLearner(rl_method=args.rl_method, 
                 stock_code=stock_code, chart_data=chart_data, training_data=training_data,
                 min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.05,
-                net='lstm', n_steps=5, lr=.01)
-        elif args.rl_method == 'a2c':
-            learner = A2CLearner(
+                net=args.net, n_steps=args.n_steps, lr=.01,
+                value_network_path=value_network_path)
+        elif args.rl_method == 'pg':
+            learner = PolicyGradientLearner(rl_method=args.rl_method, 
                 stock_code=stock_code, chart_data=chart_data, training_data=training_data,
-                min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.2, lr=.001,
+                min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.05,
+                net=args.net, n_steps=args.n_steps, lr=.01,
                 policy_network_path=policy_network_path)
+        elif args.rl_method == 'ac':
+            learner = ActorCriticLearner(rl_method=args.rl_method, 
+                stock_code=stock_code, chart_data=chart_data, training_data=training_data,
+                min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.05, 
+                net=args.net, n_steps=args.n_steps, lr=.01,
+                value_network_path=value_network_path, policy_network_path=policy_network_path)
+        elif args.rl_method == 'a2c':
+            learner = A2CLearner(rl_method=args.rl_method, 
+                stock_code=stock_code, chart_data=chart_data, training_data=training_data,
+                min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.05, 
+                net=args.net, n_steps=args.n_steps, lr=.01,
+                value_network_path=value_network_path, policy_network_path=policy_network_path)
         elif args.rl_method == 'a3c':
             list_stock_code.append(stock_code)
             list_chart_data.append(chart_data)
@@ -104,9 +118,7 @@ if __name__ == '__main__':
             list_max_trading_unit.append(max_trading_unit)
         
         if learner is not None:
-            learner.fit(balance=10000000, num_epoches=100,
-                        discount_factor=0.99, start_epsilon=.2)
-
+            learner.fit(balance=10000000, num_epoches=1000, discount_factor=0.9, start_epsilon=.2)
             # 신경망을 파일로 저장
             learner.save_models()
 
@@ -114,6 +126,7 @@ if __name__ == '__main__':
         learner = A3CLearner(
             list_stock_code=list_stock_code, list_chart_data=list_chart_data, list_training_data=list_training_data,
             list_min_trading_unit=list_min_trading_unit, list_max_trading_unit=list_max_trading_unit,
-            delayed_reward_threshold=.2, lr=.001, policy_network_path=policy_network_path)
-        learner.fit(balance=10000000, num_epoches=100,
-                    discount_factor=0.99, start_epsilon=.2)
+            delayed_reward_threshold=.05, 
+            net=args.net, n_steps=args.n_steps, lr=.01,
+            value_network_path=value_network_path, policy_network_path=policy_network_path)
+        learner.fit(balance=10000000, num_epoches=100, discount_factor=0.9, start_epsilon=.2)
