@@ -6,14 +6,16 @@ class Agent:
     STATE_DIM = 2  # 주식 보유 비율, 포트폴리오 가치 비율
 
     # 매매 수수료 및 세금
-    TRADING_CHARGE = 0.00015  # 거래 수수료 (일반적으로 0.015%)
-    TRADING_TAX = 0.003  # 거래세 (실제 0.3%)
+    # TRADING_CHARGE = 0.00015  # 거래 수수료 (일반적으로 0.015%)
+    # TRADING_TAX = 0.003  # 거래세 (실제 0.3%)
+    TRADING_CHARGE = 0  # 거래 수수료 미적용
+    TRADING_TAX = 0  # 거래세 미적용
 
     # 행동
     ACTION_BUY = 0  # 매수
     ACTION_SELL = 1  # 매도
     ACTION_HOLD = 2  # 홀딩
-    ACTIONS = [ACTION_BUY, ACTION_SELL, ACTION_HOLD]  # 인공 신경망에서 확률을 구할 행동들
+    ACTIONS = [ACTION_BUY, ACTION_SELL]  # 인공 신경망에서 확률을 구할 행동들
     NUM_ACTIONS = len(ACTIONS)  # 인공 신경망에서 고려할 출력값의 개수
 
     def __init__(
@@ -87,17 +89,16 @@ class Agent:
         return action, confidence, exploration
 
     def validate_action(self, action):
-        validity = True
         if action == Agent.ACTION_BUY:
             # 적어도 1주를 살 수 있는지 확인
             if self.balance < self.environment.get_price() * (
                 1 + self.TRADING_CHARGE) * self.min_trading_unit:
-                validity = False
+                return False
         elif action == Agent.ACTION_SELL:
             # 주식 잔고가 있는지 확인 
             if self.num_stocks <= 0:
-                validity = False
-        return validity
+                return False
+        return True
 
     def decide_trading_unit(self, confidence):
         if np.isnan(confidence):
@@ -164,6 +165,7 @@ class Agent:
         self.immediate_reward = profitloss
 
         # 지연 보상 - 익절, 손절 기준
+        delayed_reward = 0
         if profitloss > self.delayed_reward_threshold:
             delayed_reward = self.immediate_reward
             # 목표 수익률 달성하여 기준 포트폴리오 가치 갱신

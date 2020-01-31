@@ -63,7 +63,7 @@ class ReinforcementLearner:
         self.memory_exp_idx = []
         self.memory_learning_idx = []
 
-    def init_value_network(self, shared_network=None, activation='sigmoid'):
+    def init_value_network(self, shared_network=None, activation='tanh'):
         if self.net == 'dnn':
             self.value_network = DNN(
                 input_dim=self.num_features, output_dim=self.agent.NUM_ACTIONS, lr=self.lr, shared_network=shared_network, activation=activation)
@@ -276,7 +276,7 @@ class ReinforcementLearner:
         elapsed_time = time_end - time_start
 
         # 학습 관련 정보 로그 기록
-        logging.info("[{code}] Elapsed Time: {elapsed_time}, Max PV: {max_pv}, \t # Win: {cnt_win}".format(
+        logging.info("[{code}] Elapsed Time: {elapsed_time}, Max PV: {max_pv}, \t #Win: {cnt_win}".format(
             code=self.stock_code, elapsed_time=elapsed_time, max_pv=locale.currency(max_portfolio_value, grouping=True), cnt_win=epoch_win_cnt))
 
     def build_sample(self):
@@ -336,15 +336,14 @@ class DQNLearner(ReinforcementLearner):
             reversed(self.memory_sample[-batch_size:]),
             reversed(self.memory_action[-batch_size:]),
             reversed(self.memory_value[-batch_size:]),
-            reversed(self.memory_reward[-batch_size:]),
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         value_max_next = 0
-        for i, (sample, action, value, reward) in enumerate(memory):
+        for i, (sample, action, value) in enumerate(memory):
             x[i] = sample
             y[i] = value
-            y[i, action] = sigmoid(delayed_reward - reward) + discount_factor * value_max_next
+            y[i, action] = np.tanh(delayed_reward) + discount_factor * value_max_next
             value_max_next = value.max()
         return x, y, None
 
@@ -359,14 +358,13 @@ class PolicyGradientLearner(ReinforcementLearner):
             reversed(self.memory_sample[-batch_size:]),
             reversed(self.memory_action[-batch_size:]),
             reversed(self.memory_policy[-batch_size:]),
-            reversed(self.memory_reward[-batch_size:]),
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y = np.zeros((batch_size, self.agent.NUM_ACTIONS))
-        for i, (sample, action, policy, reward) in enumerate(memory):
+        for i, (sample, action, policy) in enumerate(memory):
             x[i] = sample
             y[i] = policy
-            y[i, action] += (sigmoid(delayed_reward) - sigmoid(reward)) * (discount_factor ** i)
+            y[i, action] += np.tanh(delayed_reward) * (discount_factor ** i)
         return x, None, y
 
 class ActorCriticLearner(ReinforcementLearner):
@@ -389,17 +387,16 @@ class ActorCriticLearner(ReinforcementLearner):
             reversed(self.memory_action[-batch_size:]),
             reversed(self.memory_value[-batch_size:]),
             reversed(self.memory_policy[-batch_size:]),
-            reversed(self.memory_reward[-batch_size:]),
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y_value = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         y_policy = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         value_max_next = 0
-        for i, (sample, action, value, policy, reward) in enumerate(memory):
+        for i, (sample, action, value, policy) in enumerate(memory):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            y_value[i, action] = sigmoid(delayed_reward - reward) + discount_factor * value_max_next
+            y_value[i, action] = np.tanh(delayed_reward) + discount_factor * value_max_next
             y_policy[i, action] += value[action] * (discount_factor ** i)
             value_max_next = value.max()
         return x, y_value, y_policy
@@ -415,18 +412,17 @@ class A2CLearner(ActorCriticLearner):
             reversed(self.memory_action[-batch_size:]),
             reversed(self.memory_value[-batch_size:]),
             reversed(self.memory_policy[-batch_size:]),
-            reversed(self.memory_reward[-batch_size:]),
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y_value = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         y_policy = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         value_max_next = 0
-        for i, (sample, action, value, policy, reward) in enumerate(memory):
+        for i, (sample, action, value, policy) in enumerate(memory):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            advantage = sigmoid(delayed_reward - reward) - value[action]
-            y_value[i, action] = sigmoid(delayed_reward - reward) + discount_factor * value_max_next
+            advantage = np.tanh(delayed_reward) - value[action]
+            y_value[i, action] = np.tanh(delayed_reward) + discount_factor * value_max_next
             y_policy[i, action] += advantage * (discount_factor ** i)
             value_max_next = value.max()
         return x, y_value, y_policy

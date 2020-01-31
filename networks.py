@@ -15,7 +15,7 @@ class Network:
     graph = get_default_graph()
 
     def __init__(self, input_dim=0, output_dim=0, lr=0.01, 
-                shared_network=None, activation='sigmoid'):
+                shared_network=None, activation='linear'):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.lr = lr
@@ -55,7 +55,7 @@ class Network:
             elif net == 'lstm':
                 return LSTMNetwork.get_network_head(Input((n_steps, input_dim)))
             elif net == 'cnn':
-                return CNN.get_network_head(Input((n_steps, input_dim)))
+                return CNN.get_network_head(Input((1, n_steps, input_dim)))
 
 
 class DNN(Network):
@@ -72,9 +72,9 @@ class DNN(Network):
 
     @staticmethod
     def get_network_head(inp):
-        output = Dense(128, activation='sigmoid')(inp)
+        output = Dense(128, activation='linear')(inp)
         output = Dropout(0.1)(output)
-        output = Dense(128, activation='sigmoid')(output)
+        output = Dense(128, activation='linear')(output)
         output = Dropout(0.1)(output)
         return Model(inp, output)
 

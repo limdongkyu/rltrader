@@ -81,8 +81,10 @@ if __name__ == '__main__':
         training_data = training_data[features_training_data]
 
         # 최소/최대 투자 단위 설정
+        # min_trading_unit = max(int(100000 / chart_data.iloc[-1]['close']), 1)
+        # max_trading_unit = max(int(1000000 / chart_data.iloc[-1]['close']), 1)
         min_trading_unit = max(int(100000 / chart_data.iloc[-1]['close']), 1)
-        max_trading_unit = max(int(300000 / chart_data.iloc[-1]['close']), 1)
+        max_trading_unit = max(int(100000 / chart_data.iloc[-1]['close']), 1)
 
         # 강화학습 시작
         learner = None
@@ -102,12 +104,12 @@ if __name__ == '__main__':
             learner = ActorCriticLearner(rl_method=args.rl_method, 
                 stock_code=stock_code, chart_data=chart_data, training_data=training_data,
                 min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.05, 
-                net=args.net, n_steps=args.n_steps, lr=.01,
+                net=args.net, n_steps=args.n_steps, lr=.001,
                 value_network_path=value_network_path, policy_network_path=policy_network_path)
         elif args.rl_method == 'a2c':
             learner = A2CLearner(rl_method=args.rl_method, 
                 stock_code=stock_code, chart_data=chart_data, training_data=training_data,
-                min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.05, 
+                min_trading_unit=min_trading_unit, max_trading_unit=max_trading_unit, delayed_reward_threshold=.03, 
                 net=args.net, n_steps=args.n_steps, lr=.01,
                 value_network_path=value_network_path, policy_network_path=policy_network_path)
         elif args.rl_method == 'a3c':
@@ -126,7 +128,7 @@ if __name__ == '__main__':
         learner = A3CLearner(
             list_stock_code=list_stock_code, list_chart_data=list_chart_data, list_training_data=list_training_data,
             list_min_trading_unit=list_min_trading_unit, list_max_trading_unit=list_max_trading_unit,
-            delayed_reward_threshold=.05, 
+            delayed_reward_threshold=.03, 
             net=args.net, n_steps=args.n_steps, lr=.01,
             value_network_path=value_network_path, policy_network_path=policy_network_path)
         learner.fit(balance=10000000, num_epoches=100, discount_factor=0.99, start_epsilon=.3)

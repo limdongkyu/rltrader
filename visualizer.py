@@ -6,7 +6,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from mplfinance.original_flavor import candlestick_ohlc
-
+from agent import Agent
 
 lock = threading.Lock()
 
@@ -47,47 +47,48 @@ class Visualizer:
 
     def plot(self, epoch_str=None, num_epoches=None, epsilon=None,
             action_list=None, actions=None, num_stocks=None,
-            outvals_value=None, outvals_policy=None, exps=None, learning=None,
+            outvals_value=[], outvals_policy=[], exps=None, learning=None,
             initial_balance=None, pvs=None):
         with lock:
             x = np.arange(len(actions))  # 모든 차트가 공유할 x축 데이터
             actions = np.array(actions)  # 에이전트의 행동 배열
-            if outvals_value is not None:
-                outvals_value = np.array([max(v) for v in outvals_value])  # 가치 신경망의 출력 배열
-            if outvals_policy is not None:
-                outvals_policy = np.array(outvals_policy)  # 정책 신경망의 출력 배열
+            outvals_value = np.array(outvals_value)  # 가치 신경망의 출력 배열
+            outvals_policy = np.array(outvals_policy)  # 정책 신경망의 출력 배열
             pvs_base = np.zeros(len(actions)) + initial_balance  # 초기 자본금 배열
 
-            # 차트 2. 에이전트 상태 (행동, 보유 주식 수)
             colors = ['r', 'b']
-            for actiontype, color in zip(action_list, colors):
-                for i in x[actions == actiontype]:
+
+            # 차트 2. 에이전트 상태 (행동, 보유 주식 수)
+            for action, color in zip(action_list, colors):
+                for i in x[actions == action]:
                     self.axes[1].axvline(i, color=color, alpha=0.1)  # 배경 색으로 행동 표시
             self.axes[1].plot(x, num_stocks, '-k')  # 보유 주식 수 그리기
 
             # 차트 3. 신경망의 출력 및 탐험
+            # 탐험을 노란색 배경으로 그리기
             for exp_idx in exps:
-                # 탐험을 노란색 배경으로 그리기
                 self.axes[2].axvline(exp_idx, color='y')
-            # 가치 신경망 출력
+            # 행동을 배경으로 그리기
+            _outvals = outvals_policy if len(outvals_policy) > 0 else outvals_value
+            for idx, outval in zip(x, _outvals):
+                color = 'white'
+                if outval.argmax() == Agent.ACTION_BUY:
+                    color = 'r'  # 매수 빨간색
+                elif outval.argmax() == Agent.ACTION_SELL:
+                    color = 'b'  # 매도 파란색
+                self.axes[2].axvline(idx, color=color, alpha=0.1)
+            # 가치 신경망 출력 그리기
             if len(outvals_value) > 0:
-                color = 'k'
-                self.ax_v.plot(x, outvals_value, color=color, linestyle='-')
-                self.ax_v.tick_params(axis='y', labelcolor=color)
+                if len(outvals_policy) > 0:
+                    color = 'k'
+                    self.ax_v.plot(x, [max(v) for v in outvals_value], color=color, linestyle='-')
+                    self.ax_v.tick_params(axis='y', labelcolor=color)
+                else:
+                    for action, color in zip(action_list, colors):
+                        self.axes[2].plot(x, outvals_value[:, action], color=color, linestyle='-')
+            # 정책 신경망의 출력 그리기
             if len(outvals_policy) > 0:
-                for idx, outval in zip(x, outvals_policy):
-                    color = 'white'
-                    if outval.argmax() == 0:
-                        color = 'r'  # 매수 빨간색
-                    elif outval.argmax() == 1:
-                        color = 'b'  # 매도 파란색
-                    elif outval.argmax() == 2:
-                        color = 'g'  # 홀드 초록색
-                    # 행동을 배경으로 그리기
-                    self.axes[2].axvline(idx, color=color, alpha=0.1)
-                colors = ['r', 'b', 'g']
                 for action, color in zip(action_list, colors):
-                    # 정책 신경망의 출력 점으로 그리기
                     self.axes[2].plot(x, outvals_policy[:, action], color=color, linestyle='-')
 
             # 차트 4. 포트폴리오 가치
@@ -97,8 +98,8 @@ class Visualizer:
             self.axes[3].fill_between(x, pvs, pvs_base,
                                     where=pvs < pvs_base, facecolor='b', alpha=0.1)
             self.axes[3].plot(x, pvs, '-k')
+            # 학습 위치 표시
             for learning_idx, delayed_reward in learning:
-                # 학습 위치 표시
                 if delayed_reward > 0:
                     self.axes[3].axvline(learning_idx, color='r', alpha=0.1)
                 else:
