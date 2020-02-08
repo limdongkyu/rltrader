@@ -39,6 +39,7 @@ class Agent:
         self.num_sell = 0  # 매도 횟수
         self.num_hold = 0  # 홀딩 횟수
         self.immediate_reward = 0  # 즉시 보상
+        self.profitloss = 0  # 현재 손익
 
         # Agent 클래스의 상태
         self.ratio_hold = 0  # 주식 보유 비율
@@ -158,20 +159,21 @@ class Agent:
 
         # 포트폴리오 가치 갱신
         self.portfolio_value = self.balance + curr_price * self.num_stocks
-        profitloss = (
-            (self.portfolio_value - self.base_portfolio_value) / self.base_portfolio_value)
+        self.profitloss = (
+            (self.portfolio_value - self.initial_balance) / self.initial_balance)
 
         # 즉시 보상 - 수익률
-        self.immediate_reward = profitloss
+        self.immediate_reward = self.profitloss
 
         # 지연 보상 - 익절, 손절 기준
         delayed_reward = 0
-        if profitloss > self.delayed_reward_threshold:
-            delayed_reward = self.immediate_reward
+        base_profitloss = (self.portfolio_value - self.base_portfolio_value) / self.base_portfolio_value
+        if base_profitloss > self.delayed_reward_threshold:
+            delayed_reward = self.profitloss
             # 목표 수익률 달성하여 기준 포트폴리오 가치 갱신
             self.base_portfolio_value = self.portfolio_value
-        elif profitloss < -self.delayed_reward_threshold:
-            delayed_reward = self.immediate_reward
+        elif base_profitloss < -self.delayed_reward_threshold:
+            delayed_reward = self.profitloss
             # 손실 기준치를 초과하여 기준 포트폴리오 가치 갱신
             self.base_portfolio_value = self.portfolio_value
         else:
