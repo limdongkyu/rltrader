@@ -1,9 +1,6 @@
 import threading
 import numpy as np
 import tensorflow as tf
-from tensorflow.compat.v1 import Session
-from tensorflow.compat.v1 import get_default_graph
-from tensorflow.compat.v1.keras.backend import set_session, clear_session
 from tensorflow.compat.v1.keras.models import Model, Sequential
 from tensorflow.compat.v1.keras.layers import Input, Activation, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
 from tensorflow.compat.v1.keras.optimizers import SGD
@@ -11,8 +8,6 @@ from tensorflow.compat.v1.keras.optimizers import SGD
 
 class Network:
     lock = threading.Lock()
-    sess = Session()
-    graph = get_default_graph()
 
     def __init__(self, input_dim=0, output_dim=0, lr=0.01, 
                 shared_network=None, activation='linear'):
@@ -25,17 +20,13 @@ class Network:
 
     def predict(self, sample):
         with self.lock:
-            with self.graph.as_default():
-                set_session(self.sess)
-                self.prob = self.model.predict(sample).flatten()
+            self.prob = self.model.predict(sample).flatten()
         return self.prob
 
     def train_on_batch(self, x, y):
         loss = 0.
         with self.lock:
-            with self.graph.as_default():
-                set_session(self.sess)
-                loss = self.model.train_on_batch(x, y)
+            loss = self.model.train_on_batch(x, y)
         return loss
 
     def save_model(self, model_path):
@@ -48,14 +39,12 @@ class Network:
 
     @classmethod
     def get_shared_network(cls, net='lstm', n_steps=1, input_dim=0, sess=None, graph=None):
-        with cls.graph.as_default():
-            set_session(cls.sess)
-            if net == 'dnn':
-                return DNN.get_network_head(Input((input_dim,)))
-            elif net == 'lstm':
-                return LSTMNetwork.get_network_head(Input((n_steps, input_dim)))
-            elif net == 'cnn':
-                return CNN.get_network_head(Input((1, n_steps, input_dim)))
+        if net == 'dnn':
+            return DNN.get_network_head(Input((input_dim,)))
+        elif net == 'lstm':
+            return LSTMNetwork.get_network_head(Input((n_steps, input_dim)))
+        elif net == 'cnn':
+            return CNN.get_network_head(Input((1, n_steps, input_dim)))
 
 
 class DNN(Network):

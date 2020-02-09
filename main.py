@@ -31,12 +31,12 @@ from learners import DQNLearner, PolicyGradientLearner, ActorCriticLearner, A2CL
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--stock_codes', nargs='+')
-    parser.add_argument('--ver', choices=['v1', 'v2'], default='v2')
+    parser.add_argument('--ver', choices=['v1', 'v2'], default='v1')
     parser.add_argument('--rl_method', choices=['dqn', 'pg', 'ac', 'a2c', 'a3c'])
     parser.add_argument('--net', choices=['dnn', 'lstm', 'cnn'], default='dnn')
     parser.add_argument('--n_steps', type=int, default=1)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--discount_factor', type=float, default=0.8)
+    parser.add_argument('--discount_factor', type=float, default=0.5)
     parser.add_argument('--start_epsilon', type=float, default=0.3)
     parser.add_argument('--num_epoches', type=int, default=100)
     parser.add_argument('--delayed_reward_threshold', type=float, default=0.05)
@@ -127,6 +127,10 @@ if __name__ == '__main__':
                 learner = A2CLearner(**{
                     **common_params, 
                     'value_network_path': value_network_path, 'policy_network_path': policy_network_path})
+            if learner is not None:
+                learner.fit(balance=10000000, num_epoches=args.num_epoches, 
+                            discount_factor=args.discount_factor, start_epsilon=args.start_epsilon)
+                learner.save_models()
         else:
             list_stock_code.append(stock_code)
             list_chart_data.append(chart_data)
@@ -140,8 +144,7 @@ if __name__ == '__main__':
                 net=args.net, n_steps=args.n_steps, lr=args.lr,
                 value_network_path=value_network_path, policy_network_path=policy_network_path)
 
-        if learner is not None:
-            learner.fit(balance=10000000, num_epoches=args.num_epoches, 
-                        discount_factor=args.discount_factor, start_epsilon=args.start_epsilon)
-            # 신경망을 파일로 저장
-            learner.save_models()
+    if args.rl_method == 'a3c' and learner is not None:
+        learner.fit(balance=10000000, num_epoches=args.num_epoches, 
+                    discount_factor=args.discount_factor, start_epsilon=args.start_epsilon)
+        learner.save_models()

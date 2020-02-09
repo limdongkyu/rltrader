@@ -27,19 +27,20 @@ class Visualizer:
                 # 보기 어려운 과학적 표기 비활성화
                 ax.get_xaxis().get_major_formatter().set_scientific(False)
                 ax.get_yaxis().get_major_formatter().set_scientific(False)
+                # y axis 위치 오른쪽으로 변경
+                ax.yaxis.tick_right()
             # 차트 1. 일봉 차트
             self.axes[0].set_ylabel('Env.')  # y 축 레이블 표시
+            # ohlc란 open, high, low, close의 약자로 이 순서로된 2차원 배열
+            ohlc = np.hstack((x.reshape(-1, 1), np.array(chart_data)[:, 1:-1]))
+            # 양봉은 빨간색으로 음봉은 파란색으로 표시
+            candlestick_ohlc(self.axes[0], ohlc, colorup='r', colordown='b')
             # 거래량 가시화
+            ax = self.axes[0].twinx()
             x = np.arange(len(chart_data))
             volume = np.array(chart_data)[:, -1].tolist()
-            self.axes[0].bar(x, volume, color='b', alpha=0.3)
-            # ohlc란 open, high, low, close의 약자로 이 순서로된 2차원 배열
-            ax = self.axes[0].twinx()
-            ohlc = np.hstack((x.reshape(-1, 1), np.array(chart_data)[:, 1:-1]))
-            # self.axes[0]에 봉차트 출력
-            # 양봉은 빨간색으로 음봉은 파란색으로 표시
-            candlestick_ohlc(ax, ohlc, colorup='r', colordown='b')
-
+            ax.bar(x, volume, color='b', alpha=0.3)
+            
     def plot(self, epoch_str=None, num_epoches=None, epsilon=None,
             action_list=None, actions=None, num_stocks=None,
             outvals_value=[], outvals_policy=[], exps=None, learning=None,
