@@ -85,7 +85,8 @@ class Agent:
             exploration = False
             action = np.argmax(pred)
 
-        confidence = pred[action] / pred.sum()
+        _pred = pred + pred.min()
+        confidence = _pred[action] / _pred.sum()
 
         return action, confidence, exploration
 

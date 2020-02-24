@@ -7,7 +7,6 @@ import collections
 import threading
 import time
 import numpy as np
-import settings
 from utils import sigmoid
 from environment import Environment
 from agent import Agent
@@ -24,7 +23,8 @@ class ReinforcementLearner:
                  min_trading_unit=1, max_trading_unit=2, 
                  delayed_reward_threshold=.05, mini_batch_size=0,
                  net='dnn', n_steps=1, lr=0.01,
-                 value_network=None, policy_network=None):
+                 value_network=None, policy_network=None,
+                 output_path=''):
         self.rl_method = rl_method
         self.stock_code = stock_code
         # 환경 설정
@@ -62,6 +62,16 @@ class ReinforcementLearner:
         self.memory_num_stocks = []
         self.memory_exp_idx = []
         self.memory_learning_idx = []
+        # 에포크 관련 정보
+        self.loss = 0.
+        self.itr_cnt = 0
+        self.win_cnt = 0
+        self.exploration_cnt = 0
+        self.batch_size = 0
+        self.pos_learning_cnt = 0
+        self.neg_learning_cnt = 0
+        # 로그 등 출력 경로
+        self.output_path = output_path
 
     def init_value_network(self, shared_network=None, activation='tanh'):
         if self.net == 'dnn':
@@ -109,7 +119,7 @@ class ReinforcementLearner:
         self.memory_exp_idx = []
         self.memory_learning_idx = []
 
-    def visualize(self, epoch_str, num_epoches, epsilon, epoch_summary_dir):
+    def visualize(self, epoch_str, num_epoches, epsilon):
         self.visualizer.plot(
             epoch_str=epoch_str, num_epoches=num_epoches, epsilon=epsilon,
             action_list=Agent.ACTIONS, actions=list(self.memory_action),
@@ -119,9 +129,27 @@ class ReinforcementLearner:
             initial_balance=self.agent.initial_balance, pvs=list(self.memory_pv)
         )
         self.visualizer.save(os.path.join(
-            epoch_summary_dir, 'epoch_summary_%s_%s.png' % (settings.time_str, epoch_str)))
+            self.epoch_summary_dir, 'epoch_summary_{}.png'.format(epoch_str)))
 
-    def fit(
+    def fit(self, delayed_reward, discount_factor, full=False):
+        # 배치 학습 데이터 크기
+        if full:
+            self.batch_size = len(self.memory_sample)
+        elif self.mini_batch_size > 0:
+            self.batch_size = min(self.batch_size, self.mini_batch_size)
+        # 배치 학습 데이터 생성 및 신경망 갱신
+        if self.batch_size > 0:
+            _loss = self.update_networks(self.batch_size, delayed_reward, discount_factor)
+            if _loss is not None:
+                self.loss += abs(_loss)
+                if delayed_reward > 0:
+                    self.pos_learning_cnt += 1
+                else:
+                    self.neg_learning_cnt += 1
+                self.memory_learning_idx.append([self.itr_cnt, delayed_reward])
+            self.batch_size = 0
+
+    def run(
         self, num_epoches=100, balance=10000000,
         discount_factor=0.9, start_epsilon=1, learning=True):
         info = "[{code}] RL:{rl} Net:{net} LR:{lr} DF:{discount_factor} TU:[{min_trading_unit},{max_trading_unit}] DRT:{delayed_reward_threshold}".format(
@@ -140,16 +168,9 @@ class ReinforcementLearner:
         self.visualizer.prepare(self.environment.chart_data, info)
 
         # 가시화 결과 저장할 폴더 준비
-        epoch_summary_dir = os.path.join(
-            settings.BASE_DIR, 'epoch_summary/{rl}/{net}/{stock_code}/epoch_summary_{time_str}'.format(
-                rl=self.rl_method,
-                net=self.net,
-                stock_code=self.stock_code,
-                time_str=settings.time_str
-            )
-        )
-        if not os.path.isdir(epoch_summary_dir):
-            os.makedirs(epoch_summary_dir)
+        self.epoch_summary_dir = os.path.join(self.output_path, 'epoch_summary')
+        if not os.path.isdir(self.epoch_summary_dir):
+            os.makedirs(self.epoch_summary_dir)
 
         # 에이전트 초기 자본금 설정
         self.agent.set_balance(balance)
@@ -159,16 +180,7 @@ class ReinforcementLearner:
         epoch_win_cnt = 0
 
         # 학습 반복
-        for epoch in range(num_epoches):    
-            # 에포크 관련 정보 초기화
-            loss = 0.
-            itr_cnt = 0
-            win_cnt = 0
-            exploration_cnt = 0
-            batch_size = 0
-            pos_learning_cnt = 0
-            neg_learning_cnt = 0
-
+        for epoch in range(num_epoches):
             # step 샘플을 만들기 위한 큐
             q_sample = collections.deque(maxlen=self.n_steps)
             
@@ -218,71 +230,50 @@ class ReinforcementLearner:
                 self.memory_pv.append(self.agent.portfolio_value)
                 self.memory_num_stocks.append(self.agent.num_stocks)
                 if exploration:
-                    self.memory_exp_idx.append(itr_cnt)
+                    self.memory_exp_idx.append(self.itr_cnt)
 
                 # 반복에 대한 정보 갱신
-                batch_size += 1
-                itr_cnt += 1
-                exploration_cnt += 1 if exploration else 0
-                win_cnt += 1 if delayed_reward > 0 else 0
+                self.batch_size += 1
+                self.itr_cnt += 1
+                self.exploration_cnt += 1 if exploration else 0
+                self.win_cnt += 1 if delayed_reward > 0 else 0
 
                 # 학습 모드이고 지연 보상이 존재할 경우 정책 신경망 갱신
-                if self.mini_batch_size > 0 and delayed_reward == 0 and batch_size >= self.mini_batch_size:
+                if self.mini_batch_size > 0 and delayed_reward == 0 and self.batch_size >= self.mini_batch_size:
                     delayed_reward = immediate_reward
                     self.agent.base_portfolio_value = self.agent.portfolio_value
                 if learning and delayed_reward != 0:
-                    # 배치 학습 데이터 크기
-                    if self.mini_batch_size > 0:
-                        batch_size = min(batch_size, self.mini_batch_size)
-                    # 배치 학습 데이터 생성 및 신경망 갱신
-                    if batch_size > 0:
-                        _loss = self.update_networks(batch_size, delayed_reward, discount_factor)
-                        if _loss is not None:
-                            loss += abs(_loss)
-                            if delayed_reward > 0:
-                                pos_learning_cnt += 1
-                            else:
-                                neg_learning_cnt += 1
-                            self.memory_learning_idx.append([itr_cnt, delayed_reward])
-                        batch_size = 0
-
-            # Epoch 종료 후 학습
-            if learning:
-                delayed_reward = self.agent.profitloss
-                # 학습 데이터 생성 및 신경망 갱신
-                if len(self.memory_sample) > 0:
-                    _loss = self.update_networks(len(self.memory_sample), delayed_reward, discount_factor)
-                    if _loss is not None:
-                        loss += abs(_loss)
-                        if delayed_reward > 0:
-                            pos_learning_cnt += 1
-                        else:
-                            neg_learning_cnt += 1
-                        self.memory_learning_idx.append([itr_cnt, delayed_reward])
+                    self.fit(delayed_reward, discount_factor)
 
             # 에포크 관련 정보 가시화
-            num_epoches_digit = len(str(num_epoches))
-            epoch_str = str(epoch + 1).rjust(num_epoches_digit, '0')
-            self.visualize(epoch_str, num_epoches, epsilon, epoch_summary_dir)
+            if epoch == 0 or (epoch + 1) % 10 == 0:
+                num_epoches_digit = len(str(num_epoches))
+                epoch_str = str(epoch + 1).rjust(num_epoches_digit, '0')
+                self.visualize(epoch_str, num_epoches, epsilon)
 
             # 에포크 관련 정보 로그 기록
-            if pos_learning_cnt + neg_learning_cnt > 0:
-                loss /= pos_learning_cnt + neg_learning_cnt
+            if self.pos_learning_cnt + self.neg_learning_cnt > 0:
+                self.loss /= self.pos_learning_cnt + self.neg_learning_cnt
             logging.info("[%s][Epoch %s/%s] Epsilon:%.4f #Expl.:%d/%d "
                         "#Buy:%d #Sell:%d #Hold:%d "
                         "#Stocks:%d PV:%s "
                         "POS:%s NEG:%s Loss:%.6f" % (
-                            self.stock_code, epoch_str, num_epoches, epsilon, exploration_cnt, itr_cnt,
+                            self.stock_code, epoch_str, num_epoches, epsilon, self.exploration_cnt, self.itr_cnt,
                             self.agent.num_buy, self.agent.num_sell, self.agent.num_hold,
                             self.agent.num_stocks,
                             locale.currency(self.agent.portfolio_value, grouping=True),
-                            pos_learning_cnt, neg_learning_cnt, loss))
+                            self.pos_learning_cnt, self.neg_learning_cnt, self.loss))
 
             # 학습 관련 정보 갱신
             max_portfolio_value = max(
                 max_portfolio_value, self.agent.portfolio_value)
             if self.agent.portfolio_value > self.agent.initial_balance:
                 epoch_win_cnt += 1
+
+        # 에포크 종료 후 학습
+        if learning:
+            full = True if self.value_network is not None else False
+            self.fit(self.agent.profitloss, discount_factor, full=full)
 
         # 종료 시간
         time_end = time.time()
@@ -329,7 +320,7 @@ class ReinforcementLearner:
         if model_path is None:
             return
         self.policy_network.load_model(model_path=model_path)
-        self.fit(balance=balance, num_epoches=1, learning=False)
+        self.run(balance=balance, num_epoches=1, learning=False)
 
     def save_models(self):
         if self.value_network is not None and self.value_network_path is not None:
@@ -357,7 +348,7 @@ class DQNLearner(ReinforcementLearner):
         for i, (sample, action, value, reward) in enumerate(memory):
             x[i] = sample
             y[i] = value
-            y[i, action] = np.tanh(reward) + discount_factor * value_max_next
+            y[i, action] = (np.tanh(reward * 100) + discount_factor * value_max_next) / 2
             value_max_next = value.max()
         return x, y, None
 
@@ -376,11 +367,10 @@ class PolicyGradientLearner(ReinforcementLearner):
         )
         x = np.zeros((batch_size, self.n_steps, self.num_features))
         y = np.full((batch_size, self.agent.NUM_ACTIONS), .5)
-        policy_max_next = 0
         for i, (sample, action, policy, reward) in enumerate(memory):
             x[i] = sample
-            y[i] = policy
-            y[i, action] += np.tanh(delayed_reward - reward) * (discount_factor ** i)
+            y[i, action] = sigmoid((delayed_reward - reward) * 100)
+            y[i, 1 - action] = 1 - y[i, action]
         return x, None, y
 
 class ActorCriticLearner(ReinforcementLearner):
@@ -413,8 +403,10 @@ class ActorCriticLearner(ReinforcementLearner):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            y_value[i, action] = np.tanh(reward) + discount_factor * value_max_next
-            y_policy[i, np.argmax(y_value[i])] = 1
+            y_value[i, action] = (np.tanh(reward * 100) + discount_factor * value_max_next) / 2
+            a = np.argmax(y_value[i])
+            v = y_value[i].max()
+            y_policy[i, a] = sigmoid(v)
             value_max_next = value.max()
         return x, y_value, y_policy
 
@@ -439,9 +431,8 @@ class A2CLearner(ActorCriticLearner):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            y_value[i, action] = np.tanh(reward) + discount_factor * value_max_next
-            value_zero = value - value.min()
-            advantage = value_zero[action] - np.mean(value_zero)
+            y_value[i, action] = (np.tanh(reward * 100) + discount_factor * value_max_next) / 2
+            advantage = value[action] - np.mean(value)
             y_policy[i, action] = sigmoid(advantage)
             value_max_next = value.max()
         return x, y_value, y_policy

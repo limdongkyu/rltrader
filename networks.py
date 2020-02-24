@@ -1,9 +1,15 @@
+import os
 import threading
 import numpy as np
-import tensorflow as tf
-from tensorflow.compat.v1.keras.models import Model, Sequential
-from tensorflow.compat.v1.keras.layers import Input, Activation, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
-from tensorflow.compat.v1.keras.optimizers import SGD
+
+if os.environ['KERAS_BACKEND'] == 'tensorflow':
+    from tensorflow.keras.models import Model, Sequential
+    from tensorflow.keras.layers import Input, Activation, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
+    from tensorflow.keras.optimizers import SGD
+elif os.environ['KERAS_BACKEND'] == 'plaidml.keras.backend':
+    from keras.models import Model, Sequential
+    from keras.layers import Input, Activation, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
+    from keras.optimizers import SGD
 
 
 class Network:
@@ -62,8 +68,10 @@ class DNN(Network):
     @staticmethod
     def get_network_head(inp):
         output = Dense(128, activation='linear')(inp)
+        output = BatchNormalization()(output)
         output = Dropout(0.1)(output)
         output = Dense(128, activation='linear')(output)
+        output = BatchNormalization()(output)
         output = Dropout(0.1)(output)
         return Model(inp, output)
 
@@ -86,15 +94,16 @@ class LSTMNetwork(Network):
             output = self.get_network_head(inp).output
         else:
             output = self.shared_network.output
-        output = Dense(self.output_dim)(output)
-        output = Activation(self.activation)(output)
+        output = Dense(self.output_dim, activation=self.activation)(output)
         self.model = Model(inp, output)
         self.model.compile(optimizer=SGD(lr=self.lr), loss='mse')
 
     @staticmethod
     def get_network_head(inp):
         output = LSTM(128, dropout=0.1, return_sequences=True)(inp)
+        output = BatchNormalization()(output)
         output = LSTM(128, dropout=0.1)(output)
+        output = BatchNormalization()(output)
         return Model(inp, output)
 
     def train_on_batch(self, x, y):
@@ -115,14 +124,14 @@ class CNN(Network):
             output = self.get_network_head(inp).output
         else:
             output = self.shared_network.output
-        output = Dense(self.output_dim)(output)
-        output = Activation(self.activation)(output)
+        output = Dense(self.output_dim, activation=self.activation)(output)
         self.model = Model(inp, output)
         self.model.compile(optimizer=SGD(lr=self.lr), loss='mse')
 
     @staticmethod
     def get_network_head(inp):
         output = Conv2D(128, kernel_size=(1, 3))(inp)
+        output = BatchNormalization()(output)
         output = MaxPooling2D(pool_size=(1, 2))(output)
         output = Dropout(0.1)(output)
         output = Flatten()(output)
