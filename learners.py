@@ -13,8 +13,6 @@ from agent import Agent
 from networks import Network, DNN, LSTMNetwork, CNN
 from visualizer import Visualizer
 
-locale.setlocale(locale.LC_ALL, 'ko_KR.UTF-8')
-
 
 class ReinforcementLearner:
     __metaclass__ = abc.ABCMeta
@@ -102,6 +100,8 @@ class ReinforcementLearner:
     def reset(self):
         self.sample = None
         self.training_data_idx = -1
+        self.itr_cnt = 0
+        self.exploration_cnt = 0
         # 환경 초기화
         self.environment.reset()
         # 에이전트 초기화
@@ -146,7 +146,7 @@ class ReinforcementLearner:
                     self.pos_learning_cnt += 1
                 else:
                     self.neg_learning_cnt += 1
-                self.memory_learning_idx.append([self.itr_cnt, delayed_reward])
+                self.memory_learning_idx.append([self.training_data_idx, delayed_reward])
             self.batch_size = 0
 
     def run(
@@ -230,7 +230,7 @@ class ReinforcementLearner:
                 self.memory_pv.append(self.agent.portfolio_value)
                 self.memory_num_stocks.append(self.agent.num_stocks)
                 if exploration:
-                    self.memory_exp_idx.append(self.itr_cnt)
+                    self.memory_exp_idx.append(self.training_data_idx)
 
                 # 반복에 대한 정보 갱신
                 self.batch_size += 1
@@ -246,9 +246,9 @@ class ReinforcementLearner:
                     self.fit(delayed_reward, discount_factor)
 
             # 에포크 관련 정보 가시화
+            num_epoches_digit = len(str(num_epoches))
+            epoch_str = str(epoch + 1).rjust(num_epoches_digit, '0')
             if epoch == 0 or (epoch + 1) % 10 == 0:
-                num_epoches_digit = len(str(num_epoches))
-                epoch_str = str(epoch + 1).rjust(num_epoches_digit, '0')
                 self.visualize(epoch_str, num_epoches, epsilon)
 
             # 에포크 관련 정보 로그 기록
@@ -348,7 +348,7 @@ class DQNLearner(ReinforcementLearner):
         for i, (sample, action, value, reward) in enumerate(memory):
             x[i] = sample
             y[i] = value
-            y[i, action] = (np.tanh(reward * 100) + discount_factor * value_max_next) / 2
+            y[i, action] = reward + discount_factor * value_max_next
             value_max_next = value.max()
         return x, y, None
 
@@ -369,7 +369,7 @@ class PolicyGradientLearner(ReinforcementLearner):
         y = np.full((batch_size, self.agent.NUM_ACTIONS), .5)
         for i, (sample, action, policy, reward) in enumerate(memory):
             x[i] = sample
-            y[i, action] = sigmoid((delayed_reward - reward) * 100)
+            y[i, action] = sigmoid(delayed_reward - reward)
             y[i, 1 - action] = 1 - y[i, action]
         return x, None, y
 
@@ -403,7 +403,7 @@ class ActorCriticLearner(ReinforcementLearner):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            y_value[i, action] = (np.tanh(reward * 100) + discount_factor * value_max_next) / 2
+            y_value[i, action] = reward + discount_factor * value_max_next
             a = np.argmax(y_value[i])
             v = y_value[i].max()
             y_policy[i, a] = sigmoid(v)
@@ -431,7 +431,7 @@ class A2CLearner(ActorCriticLearner):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
-            y_value[i, action] = (np.tanh(reward * 100) + discount_factor * value_max_next) / 2
+            y_value[i, action] = reward + discount_factor * value_max_next
             advantage = value[action] - np.mean(value)
             y_policy[i, action] = sigmoid(advantage)
             value_max_next = value.max()
