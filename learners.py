@@ -254,14 +254,14 @@ class ReinforcementLearner:
             # 에포크 관련 정보 로그 기록
             if self.pos_learning_cnt + self.neg_learning_cnt > 0:
                 self.loss /= self.pos_learning_cnt + self.neg_learning_cnt
-            logging.info("[%s][Epoch %s/%s] Epsilon:%.4f #Expl.:%d/%d "
-                        "#Buy:%d #Sell:%d #Hold:%d "
-                        "#Stocks:%d PV:%s "
-                        "POS:%s NEG:%s Loss:%.6f" % (
+            logging.info("[{}][Epoch {}/{}] Epsilon:%.4f #Expl.:{}/{} "
+                        "#Buy:{} #Sell:{} #Hold:{} "
+                        "#Stocks:{} PV:{:,} "
+                        "POS:{} NEG:{} Loss:{:.6f}".format(
                             self.stock_code, epoch_str, num_epoches, epsilon, self.exploration_cnt, self.itr_cnt,
                             self.agent.num_buy, self.agent.num_sell, self.agent.num_hold,
                             self.agent.num_stocks,
-                            locale.currency(self.agent.portfolio_value, grouping=True),
+                            self.agent.portfolio_value,
                             self.pos_learning_cnt, self.neg_learning_cnt, self.loss))
 
             # 학습 관련 정보 갱신
