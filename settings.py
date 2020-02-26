@@ -7,7 +7,7 @@ import platform
 
 # 경로 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    
+
 
 # 로케일 설정
 if 'Darwin' in platform.system():

@@ -164,11 +164,12 @@ class Agent:
             (self.portfolio_value - self.initial_balance) / self.initial_balance)
 
         # 즉시 보상 - 수익률
-        self.immediate_reward = self.profitloss
+        base_profitloss = (self.portfolio_value - self.base_portfolio_value) / self.base_portfolio_value
+        self.immediate_reward = base_profitloss
 
         # 지연 보상 - 익절, 손절 기준
         delayed_reward = 0
-        base_profitloss = (self.portfolio_value - self.base_portfolio_value) / self.base_portfolio_value
+
         if base_profitloss > self.delayed_reward_threshold:
             delayed_reward = self.profitloss
             # 목표 수익률 달성하여 기준 포트폴리오 가치 갱신
