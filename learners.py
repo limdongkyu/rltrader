@@ -100,8 +100,6 @@ class ReinforcementLearner:
     def reset(self):
         self.sample = None
         self.training_data_idx = -1
-        self.itr_cnt = 0
-        self.exploration_cnt = 0
         # 환경 초기화
         self.environment.reset()
         # 에이전트 초기화
@@ -118,6 +116,14 @@ class ReinforcementLearner:
         self.memory_num_stocks = []
         self.memory_exp_idx = []
         self.memory_learning_idx = []
+        # 에포크 관련 정보 초기화
+        self.loss = 0.
+        self.itr_cnt = 0
+        self.win_cnt = 0
+        self.exploration_cnt = 0
+        self.batch_size = 0
+        self.pos_learning_cnt = 0
+        self.neg_learning_cnt = 0
 
     def visualize(self, epoch_str, num_epoches, epsilon):
         self.visualizer.plot(
@@ -254,14 +260,13 @@ class ReinforcementLearner:
             # 에포크 관련 정보 로그 기록
             if self.pos_learning_cnt + self.neg_learning_cnt > 0:
                 self.loss /= self.pos_learning_cnt + self.neg_learning_cnt
-            logging.info("[{}][Epoch {}/{}] Epsilon:%.4f #Expl.:{}/{} "
+            logging.info("[{}][Epoch {}/{}] Epsilon:{:.4f} #Expl.:{}/{} "
                         "#Buy:{} #Sell:{} #Hold:{} "
-                        "#Stocks:{} PV:{:,} "
+                        "#Stocks:{} PV:{:,.0f} "
                         "POS:{} NEG:{} Loss:{:.6f}".format(
                             self.stock_code, epoch_str, num_epoches, epsilon, self.exploration_cnt, self.itr_cnt,
                             self.agent.num_buy, self.agent.num_sell, self.agent.num_hold,
-                            self.agent.num_stocks,
-                            self.agent.portfolio_value,
+                            self.agent.num_stocks, self.agent.portfolio_value,
                             self.pos_learning_cnt, self.neg_learning_cnt, self.loss))
 
             # 학습 관련 정보 갱신
@@ -280,8 +285,8 @@ class ReinforcementLearner:
         elapsed_time = time_end - time_start
 
         # 학습 관련 정보 로그 기록
-        logging.info("[{code}] Elapsed Time: {elapsed_time}, Max PV: {max_pv}, \t #Win: {cnt_win}".format(
-            code=self.stock_code, elapsed_time=elapsed_time, max_pv=locale.currency(max_portfolio_value, grouping=True), cnt_win=epoch_win_cnt))
+        logging.info("[{code}] Elapsed Time:{elapsed_time} Max PV:{max_pv:,.0f} #Win:{cnt_win}".format(
+            code=self.stock_code, elapsed_time=elapsed_time, max_pv=max_portfolio_value, cnt_win=epoch_win_cnt))
 
     def build_sample(self):
         self.environment.observe()
@@ -407,6 +412,7 @@ class ActorCriticLearner(ReinforcementLearner):
             a = np.argmax(y_value[i])
             v = y_value[i].max()
             y_policy[i, a] = sigmoid(v)
+            y_policy[i, 1 - action] = 1 - y_policy[i, action]
             value_max_next = value.max()
         return x, y_value, y_policy
 
@@ -434,6 +440,7 @@ class A2CLearner(ActorCriticLearner):
             y_value[i, action] = reward + discount_factor * value_max_next
             advantage = value[action] - np.mean(value)
             y_policy[i, action] = sigmoid(advantage)
+            y_policy[i, 1 - action] = 1 - y_policy[i, action]
             value_max_next = value.max()
         return x, y_value, y_policy
 

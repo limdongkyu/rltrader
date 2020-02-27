@@ -85,8 +85,8 @@ class Agent:
             exploration = False
             action = np.argmax(pred)
 
-        _pred = pred + pred.min()
-        confidence = _pred[action] / _pred.sum()
+        _pred = pred - pred.min()
+        confidence = _pred[action] / _pred.sum() if _pred.sum() > 0 else 0
 
         return action, confidence, exploration
 
@@ -171,11 +171,11 @@ class Agent:
         delayed_reward = 0
 
         if base_profitloss > self.delayed_reward_threshold:
-            delayed_reward = self.profitloss
+            delayed_reward = base_profitloss
             # 목표 수익률 달성하여 기준 포트폴리오 가치 갱신
             self.base_portfolio_value = self.portfolio_value
         elif base_profitloss < -self.delayed_reward_threshold:
-            delayed_reward = self.profitloss
+            delayed_reward = base_profitloss
             # 손실 기준치를 초과하여 기준 포트폴리오 가치 갱신
             self.base_portfolio_value = self.portfolio_value
         else:

@@ -70,7 +70,7 @@ class DNN(Network):
         output = Dense(128, activation='linear')(inp)
         output = BatchNormalization()(output)
         output = Dropout(0.1)(output)
-        output = Dense(128, activation='linear')(output)
+        output = Dense(64, activation='linear')(output)
         output = BatchNormalization()(output)
         output = Dropout(0.1)(output)
         return Model(inp, output)
@@ -102,7 +102,7 @@ class LSTMNetwork(Network):
     def get_network_head(inp):
         output = LSTM(128, dropout=0.1, return_sequences=True)(inp)
         output = BatchNormalization()(output)
-        output = LSTM(128, dropout=0.1)(output)
+        output = LSTM(64, dropout=0.1)(output)
         output = BatchNormalization()(output)
         return Model(inp, output)
 
@@ -130,7 +130,7 @@ class CNN(Network):
 
     @staticmethod
     def get_network_head(inp):
-        output = Conv2D(128, kernel_size=(1, 3))(inp)
+        output = Conv2D(128, kernel_size=(1, 5))(inp)
         output = BatchNormalization()(output)
         output = MaxPooling2D(pool_size=(1, 2))(output)
         output = Dropout(0.1)(output)
