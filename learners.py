@@ -219,8 +219,7 @@ class ReinforcementLearner:
                     pred_policy = self.policy_network.predict(list(q_sample))
                 
                 # 신경망 또는 탐험에 의한 행동 결정
-                pred = pred_policy if pred_policy is not None else pred_value
-                action, confidence, exploration = self.agent.decide_action(pred, epsilon)
+                action, confidence, exploration = self.agent.decide_action(pred_value, pred_policy, epsilon)
 
                 # 결정한 행동을 수행하고 즉시 보상과 지연 보상 획득
                 immediate_reward, delayed_reward = self.agent.act(action, confidence)

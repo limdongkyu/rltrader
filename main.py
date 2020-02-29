@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--rl_method', choices=['dqn', 'pg', 'ac', 'a2c', 'a3c'])
     parser.add_argument('--net', choices=['dnn', 'lstm', 'cnn'], default='dnn')
     parser.add_argument('--n_steps', type=int, default=1)
-    parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--discount_factor', type=float, default=0.9)
     parser.add_argument('--start_epsilon', type=float, default=0.5)
     parser.add_argument('--balance', type=int, default=10000000)
@@ -37,7 +37,10 @@ if __name__ == '__main__':
 
     # 출력 경로 설정
     time_str = utils.get_time_str()
-    output_path = os.path.join(settings.BASE_DIR, 'output/{}'.format(time_str))
+    output_path = os.path.join(
+        settings.BASE_DIR, 
+        'output/{}_{}_{}'.format(time_str, args.rl_method, args.net)
+    )
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 

@@ -1,4 +1,5 @@
 import numpy as np
+import utils
 
 
 class Agent:
@@ -6,10 +7,10 @@ class Agent:
     STATE_DIM = 2  # 주식 보유 비율, 포트폴리오 가치 비율
 
     # 매매 수수료 및 세금
-    # TRADING_CHARGE = 0.00015  # 거래 수수료 (일반적으로 0.015%)
-    # TRADING_TAX = 0.003  # 거래세 (실제 0.3%)
-    TRADING_CHARGE = 0  # 거래 수수료 미적용
-    TRADING_TAX = 0  # 거래세 미적용
+    TRADING_CHARGE = 0.00015  # 거래 수수료 (일반적으로 0.015%)
+    TRADING_TAX = 0.003  # 거래세 (실제 0.3%)
+    # TRADING_CHARGE = 0  # 거래 수수료 미적용
+    # TRADING_TAX = 0  # 거래세 미적용
 
     # 행동
     ACTION_BUY = 0  # 매수
@@ -27,7 +28,8 @@ class Agent:
         # 최소 매매 단위, 최대 매매 단위, 지연보상 임계치
         self.min_trading_unit = min_trading_unit  # 최소 단일 거래 단위
         self.max_trading_unit = max_trading_unit  # 최대 단일 거래 단위
-        self.delayed_reward_threshold = delayed_reward_threshold  # 지연보상 임계치
+        # 지연보상 임계치
+        self.delayed_reward_threshold = delayed_reward_threshold
 
         # Agent 클래스의 속성
         self.initial_balance = 0  # 초기 자본금
@@ -63,14 +65,20 @@ class Agent:
     def get_states(self):
         self.ratio_hold = self.num_stocks / int(
             self.portfolio_value / self.environment.get_price())
-        self.ratio_portfolio_value = self.portfolio_value / self.base_portfolio_value
+        self.ratio_portfolio_value = (
+            self.portfolio_value / self.base_portfolio_value
+        )
         return (
             self.ratio_hold,
             self.ratio_portfolio_value
         )
 
-    def decide_action(self, pred, epsilon):
+    def decide_action(self, pred_value, pred_policy, epsilon):
         confidence = 0.
+
+        pred = pred_policy
+        if pred is None:
+            pred = pred_value
 
         # 값이 모두 같은 경우 탐험
         maxpred = np.max(pred)
@@ -85,8 +93,9 @@ class Agent:
             exploration = False
             action = np.argmax(pred)
 
-        _pred = pred - pred.min()
-        confidence = _pred[action] / _pred.sum() if _pred.sum() > 0 else 0
+        confidence = pred[action]
+        if pred_policy is None:
+            confidence = utils.sigmoid(confidence)
 
         return action, confidence, exploration
 
@@ -125,16 +134,23 @@ class Agent:
         if action == Agent.ACTION_BUY:
             # 매수할 단위를 판단
             trading_unit = self.decide_trading_unit(confidence)
-            balance = self.balance - curr_price * (1 + self.TRADING_CHARGE) * trading_unit
+            balance = (
+                self.balance - curr_price * (1 + self.TRADING_CHARGE) \
+                    * trading_unit
+            )
             # 보유 현금이 모자랄 경우 보유 현금으로 가능한 만큼 최대한 매수
             if balance < 0:
-                trading_unit = max(min(
-                    int(self.balance / (
-                        curr_price * (1 + self.TRADING_CHARGE))), self.max_trading_unit),
+                trading_unit = max(
+                    min(
+                        int(self.balance / (
+                            curr_price * (1 + self.TRADING_CHARGE))),
+                        self.max_trading_unit
+                    ),
                     self.min_trading_unit
                 )
             # 수수료를 적용하여 총 매수 금액 산정
-            invest_amount = curr_price * (1 + self.TRADING_CHARGE) * trading_unit
+            invest_amount = curr_price * (1 + self.TRADING_CHARGE) \
+                * trading_unit
             if invest_amount > 0:
                 self.balance -= invest_amount  # 보유 현금을 갱신
                 self.num_stocks += trading_unit  # 보유 주식 수를 갱신
@@ -161,10 +177,15 @@ class Agent:
         # 포트폴리오 가치 갱신
         self.portfolio_value = self.balance + curr_price * self.num_stocks
         self.profitloss = (
-            (self.portfolio_value - self.initial_balance) / self.initial_balance)
+            (self.portfolio_value - self.initial_balance) \
+                / self.initial_balance
+        )
 
         # 즉시 보상 - 수익률
-        base_profitloss = (self.portfolio_value - self.base_portfolio_value) / self.base_portfolio_value
+        base_profitloss = (
+            (self.portfolio_value - self.base_portfolio_value) \
+                / self.base_portfolio_value
+        )
         self.immediate_reward = base_profitloss
 
         # 지연 보상 - 익절, 손절 기준
