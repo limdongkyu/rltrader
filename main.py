@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--rl_method', choices=['dqn', 'pg', 'ac', 'a2c', 'a3c'])
     parser.add_argument('--net', choices=['dnn', 'lstm', 'cnn'], default='dnn')
     parser.add_argument('--n_steps', type=int, default=1)
-    parser.add_argument('--lr', type=float, default=0.01)
+    parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--discount_factor', type=float, default=0.9)
     parser.add_argument('--start_epsilon', type=float, default=0.5)
     parser.add_argument('--balance', type=int, default=10000000)
@@ -124,3 +124,5 @@ if __name__ == '__main__':
         learner.run(balance=args.balance, num_epoches=args.num_epoches, 
                     discount_factor=args.discount_factor, start_epsilon=args.start_epsilon)
         learner.save_models()
+    
+    sys.exit(0)

@@ -65,3 +65,16 @@ python main.py --stock_code 051910 --rl_method ac --net cnn --n_steps 5
 python main.py --stock_code 051910 --rl_method a2c --net dnn
 python main.py --stock_code 051910 --rl_method a2c --net lstm --n_steps 5
 python main.py --stock_code 051910 --rl_method a2c --net cnn --n_steps 5
+
+python main.py --stock_code 068270 --rl_method dqn --net dnn
+python main.py --stock_code 068270 --rl_method dqn --net lstm --n_steps 5
+python main.py --stock_code 068270 --rl_method dqn --net cnn --n_steps 5
+python main.py --stock_code 068270 --rl_method pg --net dnn
+python main.py --stock_code 068270 --rl_method pg --net lstm --n_steps 5
+python main.py --stock_code 068270 --rl_method pg --net cnn --n_steps 5
+python main.py --stock_code 068270 --rl_method ac --net dnn
+python main.py --stock_code 068270 --rl_method ac --net lstm --n_steps 5
+python main.py --stock_code 068270 --rl_method ac --net cnn --n_steps 5
+python main.py --stock_code 068270 --rl_method a2c --net dnn
+python main.py --stock_code 068270 --rl_method a2c --net lstm --n_steps 5
+python main.py --stock_code 068270 --rl_method a2c --net cnn --n_steps 5

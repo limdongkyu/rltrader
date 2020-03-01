@@ -71,7 +71,7 @@ class ReinforcementLearner:
         # 로그 등 출력 경로
         self.output_path = output_path
 
-    def init_value_network(self, shared_network=None, activation='tanh'):
+    def init_value_network(self, shared_network=None, activation='linear'):
         if self.net == 'dnn':
             self.value_network = DNN(
                 input_dim=self.num_features, output_dim=self.agent.NUM_ACTIONS, lr=self.lr, shared_network=shared_network, activation=activation)
@@ -104,6 +104,8 @@ class ReinforcementLearner:
         self.environment.reset()
         # 에이전트 초기화
         self.agent.reset()
+        # 신경망 초기화
+        self.reset_networks()
         # 가시화 초기화
         self.visualizer.clear([0, len(self.chart_data)])
         # 메모리 초기화
@@ -124,6 +126,12 @@ class ReinforcementLearner:
         self.batch_size = 0
         self.pos_learning_cnt = 0
         self.neg_learning_cnt = 0
+
+    def reset_networks(self):
+        if self.value_network is not None:
+            self.value_network.reset()
+        if self.policy_network is not None:
+            self.policy_network.reset()
 
     def visualize(self, epoch_str, num_epoches, epsilon):
         self.visualizer.plot(
@@ -276,8 +284,9 @@ class ReinforcementLearner:
 
         # 에포크 종료 후 학습
         if learning:
-            full = True if self.value_network is not None else False
-            self.fit(self.agent.profitloss, discount_factor, full=full)
+            self.fit(self.agent.profitloss, discount_factor)
+            if self.value_network is not None:
+                self.fit(self.agent.profitloss, discount_factor, full=True)
 
         # 종료 시간
         time_end = time.time()
@@ -373,8 +382,8 @@ class PolicyGradientLearner(ReinforcementLearner):
         y = np.full((batch_size, self.agent.NUM_ACTIONS), .5)
         for i, (sample, action, policy, reward) in enumerate(memory):
             x[i] = sample
+            y[i] = policy
             y[i, action] = sigmoid(delayed_reward - reward)
-            y[i, 1 - action] = 1 - y[i, action]
         return x, None, y
 
 class ActorCriticLearner(ReinforcementLearner):
@@ -411,7 +420,6 @@ class ActorCriticLearner(ReinforcementLearner):
             a = np.argmax(y_value[i])
             v = y_value[i].max()
             y_policy[i, a] = sigmoid(v)
-            y_policy[i, 1 - action] = 1 - y_policy[i, action]
             value_max_next = value.max()
         return x, y_value, y_policy
 
@@ -432,15 +440,16 @@ class A2CLearner(ActorCriticLearner):
         y_value = np.zeros((batch_size, self.agent.NUM_ACTIONS))
         y_policy = np.full((batch_size, self.agent.NUM_ACTIONS), .5)
         value_max_next = 0
+        value_mean_next = 0
         for i, (sample, action, value, policy, reward) in enumerate(memory):
             x[i] = sample
             y_value[i] = value
             y_policy[i] = policy
             y_value[i, action] = reward + discount_factor * value_max_next
-            advantage = value[action] - np.mean(value)
+            advantage = reward + value_mean_next - np.mean(value)
             y_policy[i, action] = sigmoid(advantage)
-            y_policy[i, 1 - action] = 1 - y_policy[i, action]
             value_max_next = value.max()
+            value_mean_next = value.mean()
         return x, y_value, y_policy
 
 

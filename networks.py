@@ -20,25 +20,26 @@ class Network:
     lock = threading.Lock()
 
     def __init__(self, input_dim=0, output_dim=0, lr=0.01, 
-                shared_network=None, activation='tanh'):
+                shared_network=None, activation='linear'):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.lr = lr
         self.shared_network = shared_network
         self.activation = activation
         self.model = None
-        self.prob = None
 
     def predict(self, sample):
         with self.lock:
-            self.prob = self.model.predict(sample).flatten()
-        return self.prob
+            return self.model.predict(sample).flatten()
 
     def train_on_batch(self, x, y):
         loss = 0.
         with self.lock:
             loss = self.model.train_on_batch(x, y)
         return loss
+
+    def reset(self):
+        pass
 
     def save_model(self, model_path):
         if model_path is not None and self.model is not None:
@@ -73,16 +74,14 @@ class DNN(Network):
 
     @staticmethod
     def get_network_head(inp):
-        output = Dense(256, activation='tanh')(inp)
+        output = Dense(128, activation='linear', 
+            kernel_initializer='random_normal', 
+            bias_initializer='zeros')(inp)
         output = BatchNormalization()(output)
         output = Dropout(0.1)(output)
-        output = Dense(128, activation='tanh')(output)
-        output = BatchNormalization()(output)
-        output = Dropout(0.1)(output)
-        output = Dense(64, activation='tanh')(output)
-        output = BatchNormalization()(output)
-        output = Dropout(0.1)(output)
-        output = Dense(32, activation='tanh')(output)
+        output = Dense(64, activation='linear', 
+            kernel_initializer='random_normal', 
+            bias_initializer='zeros')(output)
         output = BatchNormalization()(output)
         output = Dropout(0.1)(output)
         return Model(inp, output)
@@ -112,11 +111,15 @@ class LSTMNetwork(Network):
 
     @staticmethod
     def get_network_head(inp):
-        output = LSTM(128, dropout=0.1, return_sequences=True)(inp)
+        output = LSTM(128, dropout=0.1, 
+            return_sequences=True, stateful=True,
+            kernel_initializer='random_normal', 
+            bias_initializer='zeros')(inp)
         output = BatchNormalization()(output)
-        output = LSTM(64, dropout=0.1, return_sequences=True)(output)
-        output = BatchNormalization()(output)
-        output = LSTM(32, dropout=0.1)(output)
+        output = LSTM(64, dropout=0.1,
+            stateful=True
+            kernel_initializer='random_normal', 
+            bias_initializer='zeros')(output)
         output = BatchNormalization()(output)
         return Model(inp, output)
 
@@ -128,6 +131,8 @@ class LSTMNetwork(Network):
         sample = np.array(sample).reshape((1, self.n_steps, self.input_dim))
         return super().predict(sample)
 
+    def reset(self):
+        self.model.reset_states()
 
 class CNN(Network):
     def __init__(self, *args, n_steps=1, **kwargs):
@@ -144,11 +149,15 @@ class CNN(Network):
 
     @staticmethod
     def get_network_head(inp):
-        output = Conv2D(128, kernel_size=(1, 5))(inp)
+        output = Conv2D(128, kernel_size=(1, 5),
+            kernel_initializer='random_normal', 
+            bias_initializer='zeros')(inp)
         output = BatchNormalization()(output)
         output = MaxPooling2D(pool_size=(1, 2))(output)
         output = Dropout(0.1)(output)
-        output = Conv2D(64, kernel_size=(1, 5))(inp)
+        output = Conv2D(64, kernel_size=(1, 5),
+            kernel_initializer='random_normal', 
+            bias_initializer='zeros')(output)
         output = BatchNormalization()(output)
         output = MaxPooling2D(pool_size=(1, 2))(output)
         output = Dropout(0.1)(output)
